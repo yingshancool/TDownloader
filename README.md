@@ -1,3 +1,4 @@
+
 **Reference: [Forum Post](https://forum.lazarus.freepascal.org/index.php/topic,52773.msg389901.html#msg389901)**
 
 **Original Author: balazsszekely, Thanks!**
@@ -16,6 +17,8 @@ Translate the above content into English.
 The `uDownload` unit provides a `TDownload` class for file downloads and a `TDownloadStream` class for handling download streams. This unit is written in Free Pascal (Lazarus) and supports multi-threaded downloads, including progress tracking, error handling, and completion events.
 
 ### Usage Steps
+
+
 
 1. **Import the Unit**
 
@@ -55,6 +58,23 @@ The `uDownload` unit provides a `TDownload` class for file downloads and a `TDow
    ```pascal
    MyDownload.DownloadFile('https://example.com/file.zip', 'local_file.zip');
    ```
+
+
+**Note: Additional Dependency Required**
+
+To use this library, you need to download the file [https://indy.fulgan.com/SSL/openssl-1.0.2q-x64_86-win64.zip](https://indy.fulgan.com/SSL/openssl-1.0.2q-x64_86-win64.zip). Additionally, make sure to place the `libeay32.dll` and `ssleay32.dll` files in the application directory. These files are necessary for HTTPS functionality.
+
+Please follow these steps to ensure proper functionality:
+
+1. Download the required file from [https://indy.fulgan.com/SSL/openssl-1.0.2q-x64_86-win64.zip](https://indy.fulgan.com/SSL/openssl-1.0.2q-x64_86-win64.zip).
+
+2. Extract the contents of the downloaded ZIP file.
+
+3. Place the `libeay32.dll` and `ssleay32.dll` files in the directory where your application is located.
+
+These additional dependencies are essential for HTTPS support.
+
+
 
 ### Event Handlers
 

@@ -5,8 +5,6 @@
 
 I made some modifications based on the original author's work, fixing some bugs such as incorrect file size display when larger than 2.0GB.
 
-Translate the above content into English.
-
 
 
 **User Guide - uDownload Unit**

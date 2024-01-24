@@ -1,4 +1,15 @@
+**Reference: [Forum Post](https://forum.lazarus.freepascal.org/index.php/topic,52773.msg389901.html#msg389901)**
+
+**Original Author: balazsszekely, Thanks!**
+
+I made some modifications based on the original author's work, fixing some bugs such as incorrect file size display when larger than 2.0GB.
+
+Translate the above content into English.
+
+
+
 **User Guide - uDownload Unit**
+
 
 ### Overview
 

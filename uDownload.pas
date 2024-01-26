@@ -2,6 +2,7 @@ unit uDownload;
 
 {$mode objfpc}{$H+}
 
+
 interface
 
 uses
@@ -23,8 +24,7 @@ type
     function Write(const Buffer; Count: longint): longint; override;
     //function Seek(Offset: Int64; Origin: Word): Int64; override;
     function Seek(const Offset: int64; Origin: TSeekOrigin): int64; override;
-    procedure DoProgress;
-  published
+  public
     property OnWriteStream: TOnWriteStream read FOnWriteStream write FOnWriteStream;
   end;
 
@@ -34,6 +34,7 @@ type
   TOnDownloadError = procedure(Sender: TObject; const AErrMsg: string = '') of object;
   TOnDownloadCompleted = TNotifyEvent;
   TOnGetContentLengthCompleted = TNotifyEvent;
+  TOnCancelDownoad = TNotifyEvent;
 
   TDownload = class(TThread)
   private
@@ -44,8 +45,8 @@ type
     FRemaining: int64;
     FSpeed: int64;
     FStartTime: QWord;
+    FLastWriteStreamTime: QWord;
     FElapsed: QWord;
-    FTick: Qword;
     FPos: int64;
     FSize: int64;
     FErrMsg: string;
@@ -53,6 +54,7 @@ type
     FOnDownloadError: TOnDownloadError;
     FOnDownloadCompleted: TOnDownloadCompleted;
     FOnGetContentLengthCompleted: TOnGetContentLengthCompleted;
+    FOnCancelDownoad: TOnCancelDownoad;
     procedure GetContentLength;
     function FixProtocol(const AURL: string): string;
     procedure DoOnDataReceived(Sender: TObject;
@@ -80,6 +82,8 @@ type
       read FOnDownloadCompleted write FOnDownloadCompleted;
     property onGetContentLengthCompleted: TOnGetContentLengthCompleted
       read FOnGetContentLengthCompleted write FOnGetContentLengthCompleted;
+    property OnCancelDownoad: TOnCancelDownoad
+      read FOnCancelDownoad write FOnCancelDownoad;
   end;
 
 implementation
@@ -110,7 +114,12 @@ end;
 function TDownloadStream.Write(const Buffer; Count: longint): longint;
 begin
   Result := FStream.Write(Buffer, Count);
-  DoProgress;
+
+  // 流处理
+  if Assigned(FOnWriteStream) then
+  begin
+    FOnWriteStream(Self, Self.Position);
+  end;
 end;
 
 // 流指针
@@ -119,14 +128,7 @@ begin
   Result := FStream.Seek(Offset, Origin);
 end;
 
-// 流处理
-procedure TDownloadStream.DoProgress;
-begin
-  if Assigned(FOnWriteStream) then
-  begin
-    FOnWriteStream(Self, Self.Position);
-  end;
-end;
+
 
 {TDownload}
 
@@ -160,6 +162,9 @@ procedure TDownload.CancelDownoad;
 begin
   if Assigned(FFPHTTPClient) then
     FFPHTTPClient.Terminate;
+
+  if Assigned(FOnCancelDownoad) then
+    FOnCancelDownoad(Self);
 end;
 
 // 数据接收
@@ -173,27 +178,38 @@ end;
 // 写出流
 procedure TDownload.DoOnWriteStream(Sender: TObject; APos: int64);
 begin
-  FElapsed := GetTickCount64 - FStartTime;
+  FElapsed := GetTickCount64 - FLastWriteStreamTime;
+  // 距离上次计算速度不到1秒，则不计算，要大于1秒
   if FElapsed < 1000 then
     Exit;
-  FElapsed := FElapsed div 1000;
+
+  // 已下载的文件的大小 除以 现在所经过的时间
+  FSpeed := Round(((APos - FPos) / FElapsed) * 1000);
+
+  // 已下载的文件的大小
   FPos := APos;
-  FSpeed := Round(FPos / FElapsed);
+
+  // 得到剩余时间
   if FSpeed > 0 then
     FRemaining := Round((FSize - FPos) / FSpeed);
-  if FElapsed >= FTick + 1 then
+
+  // 记录最后写出文件的时间
+  FLastWriteStreamTime := GetTickCount64;
+
+  if not FFPHTTPClient.Terminated then
   begin
-    FTick := FElapsed;
     Synchronize(@DoOnDownloadProgress);
   end;
+
 end;
+
 
 // 下载处理
 procedure TDownload.DoOnDownloadProgress;
 begin
   if Assigned(FOnDownloadProgress) then
     FOnDownloadProgress(Self, FURL, FLocalFile, FPos, FSize, FElapsed,
-      FRemaining, FSpeed);
+      Round(FRemaining / 1000), FSpeed);
 end;
 
 // 下载出错回调
@@ -270,6 +286,7 @@ var
   Flags: word;
 begin
   FStartTime := GetTickCount64;
+  FLastWriteStreamTime := GetTickCount64;
 
   // 读取在线文件的大小
   GetContentLength;
@@ -283,11 +300,13 @@ begin
   else
   begin
     FPos := FileUtil.FileSize(FLocalFile);
+
     //WriteLn(Format('文件:%s | 本地大小：%s | 远程大小：%s',
     //  [FLocalFile, IntToStr(FPos), IntToStr(FSize)]));
+
+    // 对比体积，若远程的与本地的文件体积相同，则直接退出，并设置为完成下载。
     if FPos = FSize then
     begin
-      // 已经下载完成，则直接退出
       DoOnDownloadCompleted;
       exit;
     end;
